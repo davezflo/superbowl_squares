@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="UTF-8">
+<meta charset="UTF-8" />
 <title>Super Bowl Squares</title>
 <style>
   body { font-family: Arial, sans-serif; padding: 20px; }
   table { border-collapse: collapse; margin-top: 10px; }
-  td, th {
+  th, td {
     border: 1px solid #333;
     width: 60px;
     height: 60px;
@@ -15,15 +15,17 @@
     font-size: 12px;
   }
   th { background: #eee; }
-  td.locked { background: #f3f3f3; }
-  button { margin-right: 5px; }
+  td.locked { background: #f5f5f5; cursor: not-allowed; }
+  .controls button { margin-right: 8px; }
 </style>
 </head>
 <body>
 
 <h2>Super Bowl Squares</h2>
+<h3 style="margin-bottom:5px;">Patriots vs. Seahawks</h3>
+<p style="margin-top:0;">Columns = Patriots • Rows = Seahawks</p>
 
-<div>
+<div class="controls">
   <button onclick="lockBoard()">🔒 Lock Board</button>
   <button onclick="randomizeNumbers()">🎲 Randomize Numbers</button>
   <button onclick="resetGame()">♻️ Reset</button>
@@ -40,25 +42,12 @@ let numbersSet = false;
 let topNums = [];
 let sideNums = [];
 
-const state = JSON.parse(localStorage.getItem("squaresState")) || {};
+const saved = JSON.parse(localStorage.getItem("squaresState")) || {};
 
 function save() {
   localStorage.setItem("squaresState", JSON.stringify({
     locked, numbersSet, topNums, sideNums, names: getNames()
   }));
-}
-
-function load() {
-  if (!state.names) return;
-  locked = state.locked;
-  numbersSet = state.numbersSet;
-  topNums = state.topNums || [];
-  sideNums = state.sideNums || [];
-
-  Object.entries(state.names).forEach(([id, name]) => {
-    const cell = document.getElementById(id);
-    if (cell) cell.innerText = name;
-  });
 }
 
 function getNames() {
@@ -70,25 +59,42 @@ function getNames() {
 }
 
 function updateStatus() {
-  status.innerText =
-    locked ? "🔒 Board Locked" :
-    "🟢 Open for claiming squares";
+  document.getElementById("status").innerText =
+    locked ? "🔒 Board Locked" : "🟢 Board Open";
 }
 
 function createGrid() {
-  for (let r = 0; r <= SIZE; r++) {
-    const row = document.createElement("tr");
-    for (let c = 0; c <= SIZE; c++) {
-      const cell = document.createElement(r === 0 || c === 0 ? "th" : "td");
+  const grid = document.getElementById("grid");
 
-      if (r === 0 && c > 0) cell.id = "top-" + (c - 1);
-      else if (c === 0 && r > 0) cell.id = "side-" + (r - 1);
-      else if (r > 0 && c > 0) {
-        cell.id = `cell-${r-1}-${c-1}`;
-        cell.dataset.cell = true;
-        cell.onclick = () => claim(cell);
-      }
-      row.appendChild(cell);
+  // Patriots label row
+  let row = document.createElement("tr");
+  row.innerHTML = `<th></th><th colspan="10" style="font-size:16px;">Patriots</th>`;
+  grid.appendChild(row);
+
+  // Top numbers row
+  row = document.createElement("tr");
+  row.appendChild(document.createElement("th"));
+  for (let c = 0; c < SIZE; c++) {
+    const th = document.createElement("th");
+    th.id = `top-${c}`;
+    row.appendChild(th);
+  }
+  grid.appendChild(row);
+
+  // Seahawks rows + cells
+  for (let r = 0; r < SIZE; r++) {
+    row = document.createElement("tr");
+
+    const side = document.createElement("th");
+    side.id = `side-${r}`;
+    row.appendChild(side);
+
+    for (let c = 0; c < SIZE; c++) {
+      const td = document.createElement("td");
+      td.id = `cell-${r}-${c}`;
+      td.dataset.cell = "true";
+      td.onclick = () => claim(td);
+      row.appendChild(td);
     }
     grid.appendChild(row);
   }
@@ -110,11 +116,16 @@ function lockBoard() {
 }
 
 function randomizeNumbers() {
-  if (!locked || numbersSet) return alert("Lock board first.");
+  if (!locked || numbersSet) {
+    alert("Lock the board first.");
+    return;
+  }
   topNums = shuffle([...Array(10).keys()]);
   sideNums = shuffle([...Array(10).keys()]);
-  topNums.forEach((n, i) => document.getElementById("top-" + i).innerText = n);
-  sideNums.forEach((n, i) => document.getElementById("side-" + i).innerText = n);
+
+  topNums.forEach((n, i) => document.getElementById(`top-${i}`).innerText = n);
+  sideNums.forEach((n, i) => document.getElementById(`side-${i}`).innerText = n);
+
   numbersSet = true;
   save();
 }
@@ -129,18 +140,31 @@ function shuffle(arr) {
   return arr.sort(() => Math.random() - 0.5);
 }
 
+function load() {
+  if (!saved.names) return;
+  locked = saved.locked;
+  numbersSet = saved.numbersSet;
+  topNums = saved.topNums || [];
+  sideNums = saved.sideNums || [];
+
+  Object.entries(saved.names).forEach(([id, name]) => {
+    const cell = document.getElementById(id);
+    if (cell) cell.innerText = name;
+  });
+
+  if (numbersSet) {
+    topNums.forEach((n, i) => document.getElementById(`top-${i}`).innerText = n);
+    sideNums.forEach((n, i) => document.getElementById(`side-${i}`).innerText = n);
+  }
+
+  if (locked) {
+    document.querySelectorAll("td[data-cell]").forEach(td => td.classList.add("locked"));
+  }
+}
+
 createGrid();
 load();
 updateStatus();
-
-  // Set team names
-for (let c = 0; c < SIZE; c++) {
-  document.getElementById("top-" + c).innerText = "Patriots";
-}
-for (let r = 0; r < SIZE; r++) {
-  document.getElementById("side-" + r).innerText = "Seahawks";
-}
-
 </script>
 
 </body>
