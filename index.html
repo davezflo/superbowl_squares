@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta charset="UTF-8">
 <title>Super Bowl Squares</title>
@@ -15,76 +15,114 @@
     font-size: 12px;
   }
   th { background: #eee; }
-  input { width: 95%; }
-  .controls { margin-bottom: 15px; }
+  td.locked { background: #f3f3f3; }
+  button { margin-right: 5px; }
 </style>
 </head>
 <body>
 
 <h2>Super Bowl Squares</h2>
 
-<div class="controls">
-  <button onclick="randomizeNumbers()">Randomize Numbers</button><br><br>
-  Team A Score: <input id="scoreA" type="number" value="0">
-  Team B Score: <input id="scoreB" type="number" value="0">
-  <button onclick="checkWinner()">Check Winner</button>
+<div>
+  <button onclick="lockBoard()">🔒 Lock Board</button>
+  <button onclick="randomizeNumbers()">🎲 Randomize Numbers</button>
+  <button onclick="resetGame()">♻️ Reset</button>
 </div>
 
-<div id="winner"></div>
+<p id="status"></p>
 
 <table id="grid"></table>
 
 <script>
-const grid = document.getElementById("grid");
+const SIZE = 10;
+let locked = false;
+let numbersSet = false;
 let topNums = [];
 let sideNums = [];
 
+const state = JSON.parse(localStorage.getItem("squaresState")) || {};
+
+function save() {
+  localStorage.setItem("squaresState", JSON.stringify({
+    locked, numbersSet, topNums, sideNums, names: getNames()
+  }));
+}
+
+function load() {
+  if (!state.names) return;
+  locked = state.locked;
+  numbersSet = state.numbersSet;
+  topNums = state.topNums || [];
+  sideNums = state.sideNums || [];
+
+  Object.entries(state.names).forEach(([id, name]) => {
+    const cell = document.getElementById(id);
+    if (cell) cell.innerText = name;
+  });
+}
+
+function getNames() {
+  const names = {};
+  document.querySelectorAll("td[data-cell]").forEach(td => {
+    if (td.innerText) names[td.id] = td.innerText;
+  });
+  return names;
+}
+
+function updateStatus() {
+  status.innerText =
+    locked ? "🔒 Board Locked" :
+    "🟢 Open for claiming squares";
+}
+
 function createGrid() {
-  for (let r = 0; r <= 10; r++) {
+  for (let r = 0; r <= SIZE; r++) {
     const row = document.createElement("tr");
-    for (let c = 0; c <= 10; c++) {
+    for (let c = 0; c <= SIZE; c++) {
       const cell = document.createElement(r === 0 || c === 0 ? "th" : "td");
 
       if (r === 0 && c > 0) cell.id = "top-" + (c - 1);
       else if (c === 0 && r > 0) cell.id = "side-" + (r - 1);
       else if (r > 0 && c > 0) {
-        const input = document.createElement("input");
-        input.placeholder = "Name";
-        cell.appendChild(input);
         cell.id = `cell-${r-1}-${c-1}`;
+        cell.dataset.cell = true;
+        cell.onclick = () => claim(cell);
       }
-
       row.appendChild(cell);
     }
     grid.appendChild(row);
   }
 }
 
-function randomizeNumbers() {
-  topNums = shuffle([...Array(10).keys()]);
-  sideNums = shuffle([...Array(10).keys()]);
-
-  topNums.forEach((n, i) => document.getElementById("top-" + i).innerText = n);
-  sideNums.forEach((n, i) => document.getElementById("side-" + i).innerText = n);
+function claim(cell) {
+  if (locked) return;
+  const name = prompt("Enter your name:");
+  if (!name) return;
+  cell.innerText = name;
+  save();
 }
 
-function checkWinner() {
-  if (!topNums.length || !sideNums.length) {
-    alert("Randomize numbers first!");
-    return;
-  }
+function lockBoard() {
+  locked = true;
+  document.querySelectorAll("td[data-cell]").forEach(td => td.classList.add("locked"));
+  updateStatus();
+  save();
+}
 
-  const a = document.getElementById("scoreA").value % 10;
-  const b = document.getElementById("scoreB").value % 10;
+function randomizeNumbers() {
+  if (!locked || numbersSet) return alert("Lock board first.");
+  topNums = shuffle([...Array(10).keys()]);
+  sideNums = shuffle([...Array(10).keys()]);
+  topNums.forEach((n, i) => document.getElementById("top-" + i).innerText = n);
+  sideNums.forEach((n, i) => document.getElementById("side-" + i).innerText = n);
+  numbersSet = true;
+  save();
+}
 
-  const col = topNums.indexOf(a);
-  const row = sideNums.indexOf(b);
-
-  const cell = document.getElementById(`cell-${row}-${col}`);
-  const name = cell.querySelector("input").value || "No name";
-
-  document.getElementById("winner").innerHTML =
-    `<h3>Winner: ${name} (A:${a} / B:${b})</h3>`;
+function resetGame() {
+  if (!confirm("Reset everything?")) return;
+  localStorage.removeItem("squaresState");
+  location.reload();
 }
 
 function shuffle(arr) {
@@ -92,6 +130,8 @@ function shuffle(arr) {
 }
 
 createGrid();
+load();
+updateStatus();
 </script>
 
 </body>
